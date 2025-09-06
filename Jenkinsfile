@@ -28,17 +28,23 @@ pipeline {
             }
         }
 
-        stage('Deploy to Nginx') {
-            steps {
-                script {
-                    sh '''
-                        cp -r index.html /var/www/html/
+    stage('Deploy to Nginx') {
+        steps {
+            script {
+                sh '''
+                    if [ -f "index.html" ]; then
+                        echo "📄 Found index.html"
+                        sudo cp index.html /var/www/html/
                         sudo systemctl restart nginx
-                    '''
-                    echo "✅ Deployed: Welcome to your web app Linganna"
-                }
+                        echo "✅ Deployed: Welcome to your web app Linganna"
+                    else
+                        echo "❌ index.html not found!"
+                        exit 1
+                    fi
+                '''
             }
         }
+    }
 
         stage('Verify Nginx') {
             steps {
