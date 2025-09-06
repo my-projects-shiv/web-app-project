@@ -31,10 +31,10 @@ pipeline {
         stage('Deploy to Nginx') {
             steps {
                 script {
-                    sh """
-                        sudo cp -r index.html ${env.NGINX_PATH}/
+                    sh '''
+                        cp -r index.html /var/www/html/
                         sudo systemctl restart nginx
-                    """
+                    '''
                     echo "✅ Deployed: Welcome to your web app Linganna"
                 }
             }
