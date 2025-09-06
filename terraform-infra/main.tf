@@ -5,7 +5,7 @@ provider "aws" {
 resource "aws_instance" "web_server" {
   ami           = "ami-0c02fb55956c7d316"  # Amazon Linux 2
   instance_type = "t2.micro"
-  key_name      = "my_key_pair.pem"  # ← Nee .pem key name ivvu
+  key_name      = "my_key_pair"  # ← Nee .pem key name ivvu
 
   vpc_security_group_ids = [aws_security_group.web_sg.id]
 
