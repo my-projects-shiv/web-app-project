@@ -61,11 +61,3 @@ resource "aws_security_group" "web_sg" {
   }
 }
 
-# Outputs
-output "public_ip" {
-  value = aws_instance.web_server.public_ip
-}
-
-output "ssh_command" {
-  value = "ssh -i my_key_pair.pem ubuntu@${aws_instance.web_server.public_ip}"
-}
