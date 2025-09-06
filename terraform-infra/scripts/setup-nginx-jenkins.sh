@@ -3,6 +3,7 @@
 # Installs: Nginx, Java 17, Jenkins, Git
 # Web Page: "Welcome to your web app Linganna"
 # Jenkins runs on Java 17 (required for Jenkins 2.526+)
+# Includes fix for sudo permissions
 
 set -e  # Exit on any error
 
@@ -47,18 +48,27 @@ apt update -y
 echo "📥 Installing Jenkins..."
 apt install -y jenkins
 
+# Install Git
+echo "🔧 Installing Git..."
+apt install -y git
+
 # Fix permissions (critical)
 echo "🛡️ Fixing Jenkins directory permissions..."
 chown -R jenkins:jenkins /var/lib/jenkins
 chmod 755 /var/lib/jenkins
 
+# Add Jenkins to sudoers (NOPASSWD for cp & nginx)
+echo "🔐 Granting sudo permissions to jenkins user..."
+cat > /tmp/jenkins-sudo << 'EOF'
+jenkins ALL=(ALL) NOPASSWD: /bin/cp, /bin/systemctl restart nginx, /bin/systemctl start nginx
+EOF
+cat /tmp/jenkins-sudo | sudo tee /etc/sudoers.d/jenkins > /dev/null
+chmod 440 /etc/sudoers.d/jenkins
+
 # Reload systemd and start Jenkins
 echo "🔄 Starting Jenkins..."
 systemctl daemon-reload
 systemctl enable jenkins --now
-
-# Install Git
-apt install -y git
 
 # Final success message
 echo "✅ SUCCESS: Setup completed!"
