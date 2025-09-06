@@ -2,8 +2,8 @@ pipeline {
     agent any
 
     environment {
-        NGINX_PATH = '/usr/share/nginx/html'
-    }
+        NGINX_PATH = '/var/www/html'  // Ubuntu lo Nginx default path
+   }
 
     triggers {
         GenericTrigger(

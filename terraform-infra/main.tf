@@ -2,20 +2,32 @@ provider "aws" {
   region = "us-east-1"
 }
 
+# Ubuntu 22.04 LTS AMI (us-east-1)
+data "aws_ami" "ubuntu" {
+  most_recent = true
+  owners      = ["099720109477"] # Canonical (Ubuntu)
+
+  filter {
+    name   = "name"
+    values = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"]
+  }
+}
+
 resource "aws_instance" "web_server" {
-  ami           = "ami-0c02fb55956c7d316"  # Amazon Linux 2
+  ami           = data.aws_ami.ubuntu.id
   instance_type = "t2.micro"
-  key_name      = "my_key_pair"  # ← Nee .pem key name ivvu
+  key_name      = "my_key_pair"  # ← Nee key name (without .pem)
 
   vpc_security_group_ids = [aws_security_group.web_sg.id]
 
   user_data = file("${path.module}/scripts/setup-nginx-jenkins.sh")
 
   tags = {
-    Name = "Linganna-WebApp-Server"
+    Name = "Linganna-Ubuntu-WebApp"
   }
 }
 
+# Security Group
 resource "aws_security_group" "web_sg" {
   name        = "web-security-group"
   description = "Allow HTTP, HTTPS, SSH"
@@ -49,6 +61,11 @@ resource "aws_security_group" "web_sg" {
   }
 }
 
-output "server_public_ip" {
+# Outputs
+output "public_ip" {
   value = aws_instance.web_server.public_ip
+}
+
+output "ssh_command" {
+  value = "ssh -i my_key_pair.pem ubuntu@${aws_instance.web_server.public_ip}"
 }
