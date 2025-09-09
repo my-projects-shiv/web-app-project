@@ -2,14 +2,16 @@ pipeline {
     agent any
 
     environment {
-        NGINX_PATH = '/var/www/html'  // Ubuntu lo Nginx default path
-   }
+        AWS_REGION = "us-east-1"
+        AWS_ACCOUNT_ID = "245246852079"   // 🔑 Mee AWS account ID ikkada
+        ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/web-app"
+        IMAGE_TAG = "v${BUILD_NUMBER}"
+        KUBE_CONFIG = "/var/lib/jenkins/.kube/config"
+    }
 
     triggers {
         GenericTrigger(
-            genericVariables: [
-                [key: 'ref', value: '$.ref']
-            ],
+            genericVariables: [[key: 'ref', value: '$.ref']],
             causeString: 'Triggered by GitHub push',
             token: 'deploy-webapp',
             printContributedVariables: true,
@@ -20,45 +22,48 @@ pipeline {
     stages {
         stage('Pull Code') {
             steps {
-                script {
-                    echo "🔍 Pulling latest code..."
-                    git branch: 'main',
-                         url: 'https://github.com/my-projects-shiv/web-app-project.git'
-                }
+                git branch: 'main', url: 'https://github.com/my-projects-shiv/web-app-project.git'
             }
         }
 
-    stage('Deploy to Nginx') {
-        steps {
-            script {
+        stage('Build Docker Image') {
+            steps {
                 sh '''
-                    if [ -f "index.html" ]; then
-                        echo "📄 Found index.html"
-                        sudo cp index.html /var/www/html/
-                        sudo systemctl restart nginx
-                        echo "✅ Deployed: Welcome to your web app Linganna"
-                    else
-                        echo "❌ index.html not found!"
-                        exit 1
-                    fi
+                    echo "🐳 Building Docker image..."
+                    docker build -t $ECR_REPO:$IMAGE_TAG .
                 '''
             }
         }
-    }
 
-        stage('Verify Nginx') {
+
+        stage('Login & Push to ECR') {
             steps {
-                sh 'sudo systemctl is-active --quiet nginx || sudo systemctl start nginx'
+                sh '''
+                    echo "🔐 Logging in to ECR..."
+                    aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO
+                    echo "📦 Pushing Docker image to ECR..."
+                    docker push $ECR_REPO:$IMAGE_TAG
+                '''
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh '''
+                    echo "🚀 Deploying to Kubernetes..."
+                    kubectl --kubeconfig=$KUBE_CONFIG set image deployment/nginx-app nginx=$ECR_REPO:$IMAGE_TAG -n default || \
+                    kubectl --kubeconfig=$KUBE_CONFIG apply -f k8s-deployment.yaml
+                '''
             }
         }
     }
 
     post {
         success {
-            echo "🎉 SUCCESS: Deployment completed!"
+            echo "🎉 SUCCESS: App deployed to Kubernetes via ECR!"
         }
         failure {
-            echo "❌ FAILED: Deployment failed!"
+            echo "❌ FAILED: Something went wrong!"
         }
     }
 }
