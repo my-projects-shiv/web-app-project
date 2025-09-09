@@ -67,4 +67,5 @@ pipeline {
             echo "❌ FAILED: Something went wrong!"
         }
     }
+ }
 }
