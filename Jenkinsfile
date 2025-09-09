@@ -53,13 +53,16 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
             steps {
-                sh '''
-                    echo "🚀 Deploying to Kubernetes..."
-                    kubectl --kubeconfig=$KUBE_CONFIG set image deployment/nginx-app nginx=$ECR_REPO:$IMAGE_TAG -n default || \
-                    kubectl --kubeconfig=$KUBE_CONFIG apply -f k8s-deployment.yaml
-                '''
+                withAWS(region: "$AWS_REGION", credentials: 'aws-creds') {
+                    sh '''
+                        echo "🚀 Deploying to Kubernetes..."
+                        kubectl --kubeconfig=$KUBE_CONFIG set image deployment/nginx-app nginx=$ECR_REPO:$IMAGE_TAG -n default || \
+                        kubectl --kubeconfig=$KUBE_CONFIG apply -f k8s-deployment.yaml
+                    '''
+                }
             }
         }
+
     }
 
     post {
