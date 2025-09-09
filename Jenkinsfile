@@ -38,14 +38,15 @@ pipeline {
 
         stage('Login & Push to ECR') {
             steps {
-                sh '''
-                    echo "🔐 Logging in to ECR..."
-                    aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO
-                    echo "📦 Pushing Docker image to ECR..."
-                    docker push $ECR_REPO:$IMAGE_TAG
-                '''
+                withAWS(credentials: 'aws-creds', region: "${AWS_REGION}") {
+                    sh '''
+                        echo "🔐 Logging in to ECR..."
+                        aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ECR_REPO
+                        echo "📦 Pushing Docker image to ECR..."
+                        docker push $ECR_REPO:$IMAGE_TAG
+                    '''
+                }
             }
-        }
 
         stage('Deploy to Kubernetes') {
             steps {
