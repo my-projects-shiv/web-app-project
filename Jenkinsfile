@@ -2,11 +2,11 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION = "us-east-1"
-        AWS_ACCOUNT_ID = "245246852079"   // 🔑 Mee AWS account ID ikkada
-        ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/web-app"
-        IMAGE_TAG = "v${BUILD_NUMBER}"
-        KUBE_CONFIG = "/var/lib/jenkins/.kube/config"
+        AWS_REGION     = "us-east-1"
+        AWS_ACCOUNT_ID = "245246852079"   // 🔑 Mee AWS account ID
+        ECR_REPO       = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/web-app"
+        IMAGE_TAG      = "v${BUILD_NUMBER}"
+        KUBE_CONFIG    = "/var/lib/jenkins/.kube/config"
     }
 
     triggers {
@@ -35,7 +35,6 @@ pipeline {
             }
         }
 
-
         stage('Login & Push to ECR') {
             steps {
                 withAWS(credentials: 'aws-creds', region: "${AWS_REGION}") {
@@ -47,14 +46,17 @@ pipeline {
                     '''
                 }
             }
+        }
 
         stage('Deploy to Kubernetes') {
             steps {
-                sh '''
-                    echo "🚀 Deploying to Kubernetes..."
-                    kubectl --kubeconfig=$KUBE_CONFIG set image deployment/nginx-app nginx=$ECR_REPO:$IMAGE_TAG -n default || \
-                    kubectl --kubeconfig=$KUBE_CONFIG apply -f k8s-deployment.yaml
-                '''
+                withAWS(credentials: 'aws-creds', region: "${AWS_REGION}") {
+                    sh '''
+                        echo "🚀 Deploying to Kubernetes..."
+                        kubectl --kubeconfig=$KUBE_CONFIG set image deployment/nginx-app nginx=$ECR_REPO:$IMAGE_TAG -n default || \
+                        kubectl --kubeconfig=$KUBE_CONFIG apply -f k8s-deployment.yaml
+                    '''
+                }
             }
         }
     }
@@ -67,5 +69,4 @@ pipeline {
             echo "❌ FAILED: Something went wrong!"
         }
     }
- }
 }
