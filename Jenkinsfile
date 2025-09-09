@@ -2,11 +2,11 @@ pipeline {
     agent any
 
     environment {
-        AWS_REGION     = "us-east-1"
-        AWS_ACCOUNT_ID = "245246852079"   // 🔑 Mee AWS account ID
-        ECR_REPO       = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/web-app"
-        IMAGE_TAG      = "v${BUILD_NUMBER}"
-        KUBE_CONFIG    = "/var/lib/jenkins/.kube/config"
+        AWS_REGION = "us-east-1"
+        AWS_ACCOUNT_ID = "245246852079"
+        ECR_REPO = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/web-app"
+        IMAGE_TAG = "v${BUILD_NUMBER}"
+        KUBE_CONFIG = "/var/lib/jenkins/.kube/config"
     }
 
     triggers {
@@ -22,7 +22,7 @@ pipeline {
     stages {
         stage('Pull Code') {
             steps {
-                git branch: 'main', url: 'https://github.com/my-projects-shiv/web-app-project.git'
+                git branch: 'main', url: 'https://github.com/my-projects-shiv/web-app-project.git', credentialsId: 'git-creds'
             }
         }
 
@@ -53,13 +53,11 @@ pipeline {
 
         stage('Deploy to Kubernetes') {
             steps {
-                withAWS(credentials: 'aws-creds', region: "${AWS_REGION}") {
-                    sh '''
-                        echo "🚀 Deploying to Kubernetes..."
-                        kubectl --kubeconfig=$KUBE_CONFIG set image deployment/nginx-app nginx=$ECR_REPO:$IMAGE_TAG -n default || \
-                        kubectl --kubeconfig=$KUBE_CONFIG apply -f k8s-deployment.yaml
-                    '''
-                }
+                sh '''
+                    echo "🚀 Deploying to Kubernetes..."
+                    kubectl --kubeconfig=$KUBE_CONFIG set image deployment/nginx-app nginx=$ECR_REPO:$IMAGE_TAG -n default || \
+                    kubectl --kubeconfig=$KUBE_CONFIG apply -f k8s-deployment.yaml
+                '''
             }
         }
     }
