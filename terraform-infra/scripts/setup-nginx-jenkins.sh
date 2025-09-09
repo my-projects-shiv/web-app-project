@@ -3,75 +3,97 @@
 # Installs: Nginx, Java 17, Jenkins, Git
 # Web Page: "Welcome to your web app Linganna"
 # Jenkins runs on Java 17 (required for Jenkins 2.526+)
-# Includes fix for sudo permissions
+# Includes sudo permissions fix for Jenkins
 
-set -e  # Exit on any error
+USERID=$(id -u)
+TIMESTAMP=$(date +%F-%H-%M-%S)
+SCRIPT_NAME=$(basename "$0" | cut -d "." -f1)
+LOGFILE=/tmp/$SCRIPT_NAME-$TIMESTAMP.log
 
-echo "🚀 Starting setup on Ubuntu 22.04 LTS..."
+R="\e[31m"
+G="\e[32m"
+Y="\e[33m"
+N="\e[0m"
 
-# Update system
-echo "🔄 Updating package index..."
-apt update -y
+VALIDATE() {
+    if [ $1 -ne 0 ]; then
+        echo -e "$2...$R FAILURE $N"
+        exit 1
+    else
+        echo -e "$2...$G SUCCESS $N"
+    fi
+}
 
-# Install Nginx
-echo "📦 Installing Nginx..."
-apt install -y nginx
+if [ $USERID -ne 0 ]; then
+    echo "Please run this script with root access."
+    exit 1
+else
+    echo "You are super user."
+fi
+
+echo -e "$Y 🚀 Starting Jenkins + Nginx setup on Ubuntu 22.04 LTS... $N"
+
+# --------------------------
+# System Update
+# --------------------------
+apt update -y >>$LOGFILE 2>&1
+VALIDATE $? "System update"
+
+# --------------------------
+# Nginx Installation
+# --------------------------
+apt install -y nginx >>$LOGFILE 2>&1
 systemctl start nginx
 systemctl enable nginx
-
-# Create custom web page
-echo "📄 Creating custom web page..."
 echo "<h1>Welcome to your web app Linganna</h1>" > /var/www/html/index.html
 systemctl restart nginx
+VALIDATE $? "Nginx installation & setup"
 
-# Install Java 17 (required for Jenkins 2.526)
-echo "⚙️ Installing OpenJDK 17..."
-apt install -y openjdk-17-jre-headless
+# --------------------------
+# Java Installation (17)
+# --------------------------
+apt install -y openjdk-17-jre-headless >>$LOGFILE 2>&1
+java -version >>$LOGFILE 2>&1
+VALIDATE $? "Java 17 installation"
 
-# Verify Java version
-java -version
-
-# Add Jenkins repository key
-echo "🔐 Adding Jenkins GPG key..."
+# --------------------------
+# Jenkins Installation
+# --------------------------
 mkdir -p /usr/share/keyrings
-curl -fsSL https://pkg.jenkins.io/debian/jenkins.io.key | gpg --dearmor -o /usr/share/keyrings/jenkins.gpg
+curl -fsSL https://pkg.jenkins.io/debian/jenkins.io-2023.key | gpg --dearmor -o /usr/share/keyrings/jenkins.gpg
+echo "deb [signed-by=/usr/share/keyrings/jenkins.gpg] https://pkg.jenkins.io/debian-stable binary/" | tee /etc/apt/sources.list.d/jenkins.list > /dev/null
+apt update -y >>$LOGFILE 2>&1
+apt install -y jenkins >>$LOGFILE 2>&1
+VALIDATE $? "Jenkins installation"
 
-# Add Jenkins repository
-echo "🔗 Adding Jenkins repository..."
-echo "deb [signed-by=/usr/share/keyrings/jenkins.gpg] https://pkg.jenkins.io/debian binary/" | tee /etc/apt/sources.list.d/jenkins.list > /dev/null
+# --------------------------
+# Git Installation
+# --------------------------
+apt install -y git >>$LOGFILE 2>&1
+VALIDATE $? "Git installation"
 
-# Update package list
-echo "🔄 Updating package list..."
-apt update -y
-
-# Install Jenkins
-echo "📥 Installing Jenkins..."
-apt install -y jenkins
-
-# Install Git
-echo "🔧 Installing Git..."
-apt install -y git
-
-# Fix permissions (critical)
-echo "🛡️ Fixing Jenkins directory permissions..."
+# --------------------------
+# Fix Permissions
+# --------------------------
 chown -R jenkins:jenkins /var/lib/jenkins
 chmod 755 /var/lib/jenkins
-
-# Add Jenkins to sudoers (NOPASSWD for cp & nginx)
-echo "🔐 Granting sudo permissions to jenkins user..."
-cat > /tmp/jenkins-sudo << 'EOF'
+cat > /etc/sudoers.d/jenkins << 'EOF'
 jenkins ALL=(ALL) NOPASSWD: /bin/cp, /bin/systemctl restart nginx, /bin/systemctl start nginx
 EOF
-cat /tmp/jenkins-sudo | sudo tee /etc/sudoers.d/jenkins > /dev/null
 chmod 440 /etc/sudoers.d/jenkins
+VALIDATE $? "Jenkins sudo permissions fix"
 
-# Reload systemd and start Jenkins
-echo "🔄 Starting Jenkins..."
+# --------------------------
+# Start Jenkins
+# --------------------------
 systemctl daemon-reload
 systemctl enable jenkins --now
+VALIDATE $? "Jenkins service start"
 
-# Final success message
-echo "✅ SUCCESS: Setup completed!"
-echo "🌐 Nginx: http://<your-ip>"
-echo "🔧 Jenkins: http://<your-ip>:8080"
-echo "🔑 Get Jenkins password: sudo cat /var/lib/jenkins/secrets/initialAdminPassword"
+# --------------------------
+# Final Message
+# --------------------------
+echo -e "$G ✅ SUCCESS: Setup completed! $N"
+echo -e "$Y 🌐 Nginx: http://<your-server-ip> $N"
+echo -e "$Y 🔧 Jenkins: http://<your-server-ip>:8080 $N"
+echo -e "$Y 🔑 Get Jenkins password: sudo cat /var/lib/jenkins/secrets/initialAdminPassword $N"
